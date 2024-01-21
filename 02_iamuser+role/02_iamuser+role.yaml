@@ -1,0 +1,87 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: A sample template
+Resources:
+  # IAMUser用のグループ
+  IAMGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: test2-group
+
+  # MFAデバイスを利用してログインしている場合、IAMRoleにスイッチできる権限
+  IAMPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: test2-policy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - "sts:AssumeRole"
+            Resource: !GetAtt IAMRole.Arn
+            Condition:
+              BoolIfExists:
+                aws:MultiFactorAuthPresent: 'true'
+      Groups:
+        - !Ref IAMGroup
+
+  IAMPolicy2:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: test2-policy2
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - "iam:ChangePassword"
+              - "iam:CreateVirtualMFADevice"
+              - "iam:EnableMFADevice"
+              - "iam:ListMFADevices"
+            Resource: '*'
+      Groups:
+        - !Ref IAMGroup
+
+  IAMPolicy3:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: test2-policy3
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - "cloudshell:*"
+            Resource: '*'
+            Condition:
+              BoolIfExists:
+                aws:MultiFactorAuthPresent: 'true'
+      Groups:
+        - !Ref IAMGroup
+
+  IAMUser:
+    Type: AWS::IAM::User
+    Properties:
+      Groups: 
+        - test2-group
+      LoginProfile: 
+        Password: P@ssw0rdtest22023
+        PasswordResetRequired: true
+      UserName: test2-user
+
+  # IAMRole it can be used by iamuser in 447491875444
+  IAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/PowerUserAccess
+      RoleName: test2-role

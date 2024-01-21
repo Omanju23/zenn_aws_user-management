@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# AWS SSOインスタンスのID
-identity_store_id="d-9067f0aaba"
+# Identity StoreのIDを指定
+identity_store_id = "[Identity StoreのID]"
 
 # ユーザ情報を読み込む
 user_info_file="user_info.json"

@@ -11,26 +11,10 @@ https://aws.amazon.com/jp/about-aws/whats-new/2023/11/aws-iam-identity-center-ac
 
 Organizationsを必要としないシステムについてもIdentity Centerが利用できるようになったことで、ユーザ管理方式の幅が広がり、最適な方式を探りたくなったので比較・検証してみることとします。
 
+# 記事内で紹介するスクリプト
+Githubにて公開しているのでカスタマイズしてお使いください。
 
-# 先に結論
-個人的には拡張性を考慮するとOrganizationsありでIdentity Centerを利用するのがベストかなと感じました。
-ある程度IAMを理解して設計している方であれば、Identity Center自体はそこまで複雑ではないですし、初期構築もステップこそ多いですがほかのメリットを押しのけてまで不採用にするほどではありません。
 
-以下検証結果のまとめ表です。
-
-| 方式 | 初期構築容易性 | 運用性 | 堅牢性 | その他拡張性 |
-| ---- | :----: | :----: | :----: | :----: |
-| IAMユーザ | ○ | △ | △ | × |
-| IAMユーザ＋Role | ○ | ○ | △ | × |
-| Identity Center（Organizationsなし） | - | - | - | △ |
-| Identity Center（Organizationsなし） | △ | ○ | ○ | ○ |
-
-以降は各方式の説明や検証内容、IaCコード等を備忘的に整理しています。
-
-::: message
-本記事を読み進めていくとわかりますが、アカウントインスタンス（OrganizationsなしのIdentity Centerインスタンス）はIAMユーザの代替にすることはできません。（[アカウントインスタンスには権限セットが作成できないことが判明…
-](#%E3%82%A2%E3%82%AB%E3%82%A6%E3%83%B3%E3%83%88%E3%82%A4%E3%83%B3%E3%82%B9%E3%82%BF%E3%83%B3%E3%82%B9%E3%81%AB%E3%81%AF%E8%A8%B1%E5%8F%AF%E3%82%BB%E3%83%83%E3%83%88%E3%81%8C%E4%BD%9C%E6%88%90%E3%81%A7%E3%81%8D%E3%81%AA%E3%81%84%E3%81%93%E3%81%A8%E3%81%8C%E5%88%A4%E6%98%8E%E2%80%A6)）今後のアップデートに期待です…
-:::
 # ユーザ管理方式と比較観点
 本記事で検証を進めていく管理方式とその比較観点について記載します。
 ## ユーザ管理方式
@@ -48,6 +32,7 @@ Organizationsを必要としないシステムについてもIdentity Centerが�
 | 初期構築容易性 | 初期構築の難易度を評価 |
 | 運用性 | ユーザの追加・削除、ユーザを用いた運用性を評価 |
 | 堅牢性（セキュリティ） | 外部からの攻撃や情報流出時の堅牢性を評価 |
+| 可監査性 | 監査が可能であるかを評価 |
 | その他拡張性 | その方式特有の優位点を評価 |
 
 
@@ -59,6 +44,27 @@ Organizationsを必要としないシステムについてもIdentity Centerが�
 * Session Managerを利用したサーバログイン
 * ユーザの削除
 
+# 先に結論
+単発の検証をお手軽に進めたい場合はIAMユーザのみ、
+シングルアカウントでシステムを運用する際はIAMユーザ＋Role、
+拡張（マルチアカウント化、マルチクラウド化、サービスプロバイダの追加）が見込まれる場合Identity Center（Organizationsあり）がよいのではないでしょうか。
+
+Identity Centerの構築に△をつけているものの、個人的にはそこまで大変だと感じなかったので、Identity Centerを推したいです。
+（SSO特有の設計や、Organizations利用に伴う設計増等が見込まれるので一概には言えませんが…）
+
+| 方式 | 初期構築<br>容易性 | 運用性 | 堅牢性 | 可監査性 | その他拡張性 |
+| ---- | :----: | :----: | :----: | :----: | :----: |
+| IAMユーザ | ○ | △ | △ | ○ | × |
+| IAMユーザ＋Role | ○ | ○ | ○ | ○ | × |
+| Identity Center<br>（Organizationsなし） | - | - | - | - | △ |
+| Identity Center<br>（Organizationsあり） | △ | ○ | ○ | ○ | ○ |
+
+::: message
+本記事を読み進めていくとわかりますが、アカウントインスタンス（OrganizationsなしのIdentity Centerインスタンス）はIAMユーザの代替にすることはできません。（[アカウントインスタンスには権限セットが作成できないことが判明…
+](#%E3%82%A2%E3%82%AB%E3%82%A6%E3%83%B3%E3%83%88%E3%82%A4%E3%83%B3%E3%82%B9%E3%82%BF%E3%83%B3%E3%82%B9%E3%81%AB%E3%81%AF%E8%A8%B1%E5%8F%AF%E3%82%BB%E3%83%83%E3%83%88%E3%81%8C%E4%BD%9C%E6%88%90%E3%81%A7%E3%81%8D%E3%81%AA%E3%81%84%E3%81%93%E3%81%A8%E3%81%8C%E5%88%A4%E6%98%8E%E2%80%A6)）
+見切り発車で検証を始めてしまったことを反省…
+:::
+
 ## IAMユーザ
 ### 初期構築容易性
 担当者がログインできるまでに以下のステップで構築を行います。
@@ -67,10 +73,9 @@ Organizationsを必要としないシステムについてもIdentity Centerが�
 2. IAMグループに対してポリシーを作成して権限を割り当てます。
 3. IAMユーザのID/PWを担当者に展開します。
 
-ステップが非常に少なく、CFnのテンプレートを作ってしまえば一瞬で片が付くので非常に構築が容易だといえます。
+ステップが非常に少なく、CFnのテンプレートを作ってしまえば一瞬で構築できます。
 
 今回は以下のCFnテンプレートを利用して構築を行いました。
-CFnに対応しているので、ユーザ数が増えてもお手軽にスケールできることはこの構成の優れた点だと考えます。
 ::: details iamテンプレート
 ```yaml
 ---
@@ -129,14 +134,14 @@ Resources:
 ```
 :::
 :::message
-ただし、CFnの場合パスワードのランダマイズはできなさそうなので、担当者以外の人間も初期PWを知ってしまう可能性があるので注意が必要です。
+ただし、CFnの場合パスワードのランダマイズはできなさそうなので、担当者以外の人間も初期PWを知ってしまう可能性があります。
 :::
 
 ### 運用性
-#### 1. ユーザの追加
+1. ユーザの追加
 先述の通り追加は非常に簡単です。
 
-#### 2. CLI操作および、Session Managerでのサーバ接続
+2. CLI操作および、Session Managerでのサーバ接続
 AWS CLIを利用してローカル環境でポートフォワードを構成し、サーバに接続してみます。
 まずローカル環境でAWS CLIを利用するための長期的なアクセスキーを払い出します。
 
@@ -151,7 +156,7 @@ AWS CLIを利用してローカル環境でポートフォワードを構成し�
 
 CLIを用いてポートフォワーディングを構成し、Teratermを用いてターゲットに接続を試行します。
 正常にポートフォワーディングが構成でき、ログインプロンプトが起動したことが確認できました。
-::: details CLIコマンド
+::: details start-sessionコマンド
 ``` powershell
 aws ssm start-session --target i-07d93d09436a5471d --document-name AWS-StartPortForwardingSession --parameters portNumber=22,localPortNumber=10022
 ```
@@ -159,13 +164,14 @@ aws ssm start-session --target i-07d93d09436a5471d --document-name AWS-StartPort
 ![](https://storage.googleapis.com/zenn-user-upload/ad697ab4bbbe-20240101.gif)
 
 
-#### 3. ユーザの削除
+3. ユーザの削除
 IAMユーザ自体を削除してしまえば、払い出し済みのアクセスキーも無効化されるため、後片付けも非常に容易といえるでしょう。
 ![](https://storage.googleapis.com/zenn-user-upload/b48f64d7fe34-20240101.png)
 
 ::: message
-cloud formationでユーザを削除する際には、MFAデバイスを削除してからでないとIAMユーザの削除に失敗します。
-
+CFnでユーザを削除する際には、MFAデバイスを削除してからでないとIAMユーザの削除に失敗します。
+この記事を執筆して気づきましたが、スタック作成後に必ずドリフトが発生（MFAデバイスの追加や初期PWの変更が発生）するのでCFnとの相性はよくないのかもしれないですね。
+Identity Centerのパートで紹介するSDKを用いてIaC化するほうが良いかもしれません。
 :::
 
 ### 堅牢性
@@ -188,26 +194,28 @@ cloud formationでユーザを削除する際には、MFAデバイスを削除�
 担当者がログインできるまでに以下のステップで構築を行います。
 
 1. rootユーザーでIAMユーザ/グループを作成します。
-2. IAMグループに対してポリシーを作成して権限を割り当てます。ここでスイッチ先のRoleを指定sするとともに、MFAデバイスを強制します。
-3. ユーザがスイッチする先のRoleを作成します。信頼ポリシーに構築先アカウントのIAMユーザが引き受けられるように設定します。Roleに付与するポリシーにはMFAを強制するCondition句を付与しなくてもよいため、AWSマネージドなポリシーを付与することも可能です。
-4. IAMユーザのID/PWを担当者に展開します。
+2. IAMグループに対してポリシーを作成して権限を割り当てます。
+ここでスイッチ先のRoleを指定するとともに、MFAデバイスを強制します。
+3. ユーザがスイッチする先のRoleを作成します。
+信頼ポリシーに構築先アカウントのIAMユーザが引き受けられるように設定します。
+Roleに付与するポリシーにはMFAを強制するCondition句を付与しなくてもよいため、AWSマネージドなポリシーを付与することも可能です。
+5. IAMユーザのID/PWを担当者に展開します。
 
 IAMユーザのみの方式と比較し、1ステップ増えはしましたが、こちらも難易度は高くないといえるでしょう。
 加えてMFAデバイスの強制をassume roleアクションだけに絞っているため、実際に運用で利用するポリシーをシンプルに保つことができます。
 
 ### 運用性
-#### 1. ユーザの追加
+1. ユーザの追加
 IAMユーザのみの方式と同じく、IAMグループにユーザを追加するだけでよいので非常に簡単です。
 
-#### 2. CLI操作および、Session Managerでのサーバ接続
+2. CLI操作および、Session Managerでのサーバ接続
 今回は引き受けられるRoleが存在するので、長期的なアクセスキーを払い出さずとも接続することが可能です。
 以下のコマンドを発行することで一時的なクレデンシャルを発行します。
-
-```a:AWS CLI
- aws sts assume-role --role-arn arn:aws:iam::447491875444:role/test2-role --role-session-name test
+::: details 一時クレデンシャルの発行
 ```
-
-```a:戻り値
+aws sts assume-role --role-arn arn:aws:iam::447491875444:role/test2-role --role-session-name test
+```
+```
 {
     "Credentials": {
         "AccessKeyId": "AS*************",
@@ -219,6 +227,7 @@ IAMユーザのみの方式と同じく、IAMグループにユーザを追加�
         "AssumedRoleId": "AROAWQMEYEJ2AOGSFBHCP:test",
         "A
 ```
+:::
 
 上記で取得したアクセスキー、シークレットアクセスキー、セッショントークンを~.aws/credentialsに記載します。
 ![](https://storage.googleapis.com/zenn-user-upload/18d46baa9dcc-20240102.png)
@@ -226,7 +235,7 @@ IAMユーザのみの方式と同じく、IAMグループにユーザを追加�
 その後はIAMユーザの時同様、AWS CLIを用いてポートフォワーディングを構成し、接続します。
 ![](https://storage.googleapis.com/zenn-user-upload/cc9b6ab9aa4c-20240102.gif)
 
-#### 3. ユーザの削除
+3. ユーザの削除
 こちらも先と同様、IAMユーザを削除してしまえばよいため、後片付けも非常に容易といえるでしょう。
 ::: message
 Assume Roleで払い出された一時クレデンシャル情報は、ユーザーを削除した後もクレデンシャルの有効期限までは再利用可能なようなのでご注意ください。
@@ -236,11 +245,15 @@ Assume Roleで払い出された一時クレデンシャル情報は、ユーザ
 ### 堅牢性
 この構成でAWS CLIを使って何かを実施する必要がある場合、2つの方式をとることができます。
 1つは先と同じ、長期的なアクセスキーの払い出し。
-2つ目はAssume Roleを利用した一時的なアクセスキーの払い出し。こちらはCloud Shell等でAssume Roleを行い、一時的なクレデンシャルを取得します。運用性の2.で利用していた手方式ですね。
-こちらは長期的なアクセスキーの払い出しと比較して堅牢といえるでしょう。
+
+2つ目はAssume Roleを利用した一時的なアクセスキーの払い出し。
+こちらはCloud Shell等でAssume Roleを行い、そのクレデンシャルをプロファイルに設定して処理を実行します。
+1つ目と比較して、セキュアなためAWSも一時的なクレデンシャルを発行することを推奨しています。
+
+本記事ではIAMユーザのみの方式と比較して、一時クレデンシャルを取得できる構成であるため、より堅牢であると評価します。
 
 ### 可監査性
-ユーザのみと比較すると1step増えますが、Cloud Trailのみで監査可能です。
+ユーザのみと比較すると1step増えますが、Cloud Trailで監査可能です。
 以下画像の左側がAssumeRoleアクションの履歴です。
 test2-userで実施されていることがわかります。
 右側のイベントがStartSessionアクションの履歴です。
@@ -285,8 +298,8 @@ Organizationsありとなしの2択を選択できますが、今回はなしを
 Identity CenterのAPIリファレンスから、CreatePermissionSet APIをたたいて権限セットを作ろうとしました…
 
 https://docs.aws.amazon.com/ja_jp/singlesignon/latest/APIReference/API_CreatePermissionSet.html
-
-```
+::: details pythonスクリプトを用いた権限セットの作成（失敗）
+``` CLI:Cloudshell
 [cloudshell-user@ip-10-132-39-203 ~]$ ls -l
 total 4
 -rw-r--r--. 1 cloudshell-user cloudshell-user 1193 Jan  6 08:28 create-permissionset.py
@@ -340,6 +353,7 @@ Traceback (most recent call last):
     raise error_class(parsed_response, operation_name)
 botocore.errorfactory.ValidationException: An error occurred (ValidationException) when calling the CreatePermissionSet operation: The operation is not supported for this Identity Center instance
 ```
+:::
 
 ### アカウントインスタンスには権限セットが作成できないことが判明…
 **The operation is not supported for this Identity Center instance**
@@ -445,7 +459,7 @@ Identity StoreのIDは設定のアイデンティティソースに記載があ�
 
 
 ::: message
-Identity Centerを関連のAPIは、IdpとしてのIdentity Storeと、権限セットやアカウントアサイン設定などをつかさどるIdentity Centerの2つがあります。
+Identity Centerを関連のAPIは、IdpとしてのIdentity Storeと、権限セットやアカウントアサイン設定などを司るIdentity Centerの2つがあります。
 Identity Center側だけを見ているとユーザ作成のAPIが見つからないので要注意です。
 :::
 
@@ -647,7 +661,7 @@ if __name__ == "__main__":
 こちらも無事作成できました。
 ![](https://storage.googleapis.com/zenn-user-upload/9ad194b66bba-20240108.png)
 
-これをもってグループ1に所属するユーザは、AWSアカウント（4**************）に対して、権限セット（group1-permission-set）に含まれる権限（PowerUserAccess）を行使できるようになります。
+これをもってグループ1に所属するユーザは、AWSアカウントに対して、権限セット（group1-permission-set）に含まれる権限（PowerUserAccess）を行使できるようになります。
 
 
 
@@ -656,227 +670,83 @@ if __name__ == "__main__":
 [Identity Center（Organizationsあり）/ 4. ユーザの作成
 ](#4.-%E3%83%A6%E3%83%BC%E3%82%B6%E3%81%AE%E4%BD%9C%E6%88%90)で行ったように、APIが用意されているので、スクリプトを作ってしまえば作成は非常に簡単といえるでしょう。
 
-#### 2.
+#### 2. CLI操作および、Session Managerでのサーバ接続
 Identity Centerの優れた点の1つと考えているのがこの機能です。
-SSOポータルからクレデンシャル取得
+SSOポータルから以下の通りクレデンシャル取得することができます。
 ![](https://storage.googleapis.com/zenn-user-upload/cb51278e099f-20240108.png)
 
+ほかにもaws sso configureコマンドを用いることで対話的にプロファイルを作成することもできます。
+![](https://storage.googleapis.com/zenn-user-upload/200d4abde949-20240121.gif)
+
+上記で作成したプロファイルをもとにSession Managerで接続に成功しました。
+![](https://storage.googleapis.com/zenn-user-upload/e3ee6e075b91-20240121.gif)
+
+#### 3. ユーザの削除
+こちらも他の方式と同様、Identity Store上のユーザを削除してしまえばよいため、後片付けも非常に容易といえるでしょう。
+::: message
+AssumeRole同様、Identity Centerで払い出された一時クレデンシャル情報は、ユーザーを削除した後もクレデンシャルの有効期限までは再利用可能なようなのでご注意ください。
+:::
+
+
 ### 堅牢性
+続いて堅牢性について評価していきます。
+先の比較で登場した通り、一時的なクレデンシャルを容易に利用できるため堅牢な運用を実現しやすいといえます。
 
+さらにユーザ払い出し時のフローについてもIAMユーザを用いる場合と異なり、初期PWを払い出す必要がありません。
+（どこまで気にするかによりますが、個人的にはうれしい仕組みでした。）
 
+以下、実際にユーザのプロビジョニングの流れをご紹介します。
+
+ユーザを作成後、SSOポータルのURLとユーザ名を利用者に知らせます。
+利用者はSSOポータルにアクセスします。
 ![](https://storage.googleapis.com/zenn-user-upload/196a04cc3b48-20240108.png)
+
+利用者はユーザIDを入力すると、作成時に登録してあるメールアドレス宛にVerificationCodeが届きます。
+→[2. Identity Centerの設定（Create UserAPI利用時のOTP、MFAデバイスの強制）](#2.-identity-center%E3%81%AE%E8%A8%AD%E5%AE%9A%EF%BC%88create-userapi%E5%88%A9%E7%94%A8%E6%99%82%E3%81%AEotp%E3%80%81mfa%E3%83%87%E3%83%90%E3%82%A4%E3%82%B9%E3%81%AE%E5%BC%B7%E5%88%B6%EF%BC%89)で行った設定によってこのメールが送信されるようになります。
 ![](https://storage.googleapis.com/zenn-user-upload/58d3fbb531df-20240108.png)
 ![](https://storage.googleapis.com/zenn-user-upload/290d3af0e6c9-20240108.png)
+
+VerificationCodeを入力すると、新規パスワードを設定します。
 ![](https://storage.googleapis.com/zenn-user-upload/087d37e4e451-20240108.png)
+
+続いてMFAデバイスの登録画面に移ります。画面の指示に従い、MFAデバイスを登録します。
+このプロセスも→[2. Identity Centerの設定（Create UserAPI利用時のOTP、MFAデバイスの強制）](#2.-identity-center%E3%81%AE%E8%A8%AD%E5%AE%9A%EF%BC%88create-userapi%E5%88%A9%E7%94%A8%E6%99%82%E3%81%AEotp%E3%80%81mfa%E3%83%87%E3%83%90%E3%82%A4%E3%82%B9%E3%81%AE%E5%BC%B7%E5%88%B6%EF%BC%89)で行った設定によって実装されています。
 ![](https://storage.googleapis.com/zenn-user-upload/0bfab873a4dc-20240108.png)
 ![](https://storage.googleapis.com/zenn-user-upload/345864e7aaf8-20240108.png)
+
+ログインプロセスが完了し、ポータルが表示されます。
 ![](https://storage.googleapis.com/zenn-user-upload/7175f0c2efbc-20240108.png)
 
-### 可監査性
 
+この通り初回認証プロセスにおいて、管理者が介在する箇所が少なく、MFAデバイスの登録までスムーズに行うことができます。
+Roleを使った方式だと、ログイン後に利用者が自らMFAデバイスを登録しに行かないと登録できないので、問い合わせを受けたりするのですが、
+このように一本道でつながっていると利用者も迷わずに登録できて便利です。
+
+またIdentity Centerを利用しない方式と比較して、SSOポータルのURLも認証の知識情報として加わってくるので評価が高いです。
+
+
+### 可監査性
+最後に可監査性について評価します。
+こちらはIAMユーザと操作性は近いですね。
+Identity Store上のユーザが、Trailのユーザ名として表示されるので非常にわかりやすいです。
+![](https://storage.googleapis.com/zenn-user-upload/d892434f77ed-20240121.png)
 
 ### その他拡張性
-特にありません。
-### ログイン
+Identity CenterはSSOサービスですので、他のSPと連携することができます。
+対応するサービスの一覧が以下のドキュメントに記載されていますので、参考にしてみてください。
+https://docs.aws.amazon.com/ja_jp/singlesignon/latest/userguide/saasapps.html
 
 
 
 # まとめ
-| 方式 | 初期構築容易性 | 運用性 | 堅牢性 | その他拡張性 |
-| ---- | :----: | :----: | :----: | :----: |
-| IAMユーザ | ○ | △ | △ | × |
-| IAMユーザ＋Role | ○ | △ | △ | × |
-| Identity Center | - | - | - | △ |
-| Identity Center＋<br>外部Idp | △ | ○ | ○ | ○ |
 
-[^1]: アプリケーションへの対応が
-
-
----
-
-### 徒労に終わった検証ログを供養します
-
-2. Identity Centerの設定（Create UserAPI利用時のOTP、MFAデバイスの強制）
-次にIdentity Centerの設定を行います。
-左ペインから「設定」を選択します。
-![](https://storage.googleapis.com/zenn-user-upload/5f5b83f9ed6a-20240102.png)
-
-まずはCreate UserAPI利用時のOTP送信を有効化します。
-こちらはユーザ作成をCLIやSDK等で行う際に利用します。詳細は後述します。
-![](https://storage.googleapis.com/zenn-user-upload/2f2571e328e0-20240102.png)
-
-続いてMFAの強制について設定します。
-デフォルト設定は以下の通りです。
-初回サインイン時にMFAデバイスの登録が強制されており、以降はサインインコンテキストが変更された場合のみ要求されます。
-
-![](https://storage.googleapis.com/zenn-user-upload/fc1b415b36bc-20240102.png)
-
-今回は他の方式に揃えて「サインインごと」に変更しました。
-![](https://storage.googleapis.com/zenn-user-upload/c15b69b7177a-20240102.png)
-
-3. グループの作成
-続いてグループの作成です。ここからはAWS CLIを活用していきます。
-他の方式ではCloudFormationを利用していましたが、2024年1月2日時点ではIdentity Centerには未対応のようなので、Create Group APIをboto3で叩きます。
-https://docs.aws.amazon.com/singlesignon/latest/IdentityStoreAPIReference/API_CreateGroup.html
-
-まず、グループが作成されていないことを確認します。
-![](https://storage.googleapis.com/zenn-user-upload/125b433c7f7a-20240102.png)
-
-次にCLIの引数として必要なIDストアIDを確認します。
-設定のアイデンティティソースに記載があります。以下の右下部分に見えるd-で始まるIDです。
-![](https://storage.googleapis.com/zenn-user-upload/d96dc4780887-20240102.png)
-
-実行してみます。
-``` CLI:create-group.sh
-[cloudshell-user@ip-10-132-39-203 ~]$ ls -l create-group.py
--rw-r--r--. 1 cloudshell-user cloudshell-user 794 Jan  6 07:26 create-group.py
-[cloudshell-user@ip-10-132-39-203 ~]$ 
-[cloudshell-user@ip-10-132-39-203 ~]$ 
-[cloudshell-user@ip-10-132-39-203 ~]$ 
-[cloudshell-user@ip-10-132-39-203 ~]$ cat create-group.py
-import boto3
-import json
-
-# AWS SSOインスタンスのID
-identity_store_id = "d-9067f0aaba"
-
-groups_data = [
-    {"DisplayName": "Group1", "Description": "group1 description"},
-    {"DisplayName": "Group2", "Description": "group2 description"},
-    {"DisplayName": "Group3", "Description": "group3 description"}
-]
-
-# AWS SSOにグループを追加
-def create_group(group_data):
-    client = boto3.client("identitystore")
-
-    response = client.create_group(
-      IdentityStoreId=identity_store_id,
-      DisplayName=group_data["DisplayName"],
-      Description=group_data["Description"]
-    )
-
-    print(f"Group {response['GroupId']} created successfully")
+比較表は先に掲示した通りです。
+| 方式 | 初期構築<br>容易性 | 運用性 | 堅牢性 | 可監査性 | その他拡張性 |
+| ---- | :----: | :----: | :----: | :----: | :----: |
+| IAMユーザ | ○ | △ | △ | ○ | × |
+| IAMユーザ＋Role | ○ | ○ | ○ | ○ | × |
+| Identity Center<br>（Organizationsなし） | - | - | - | - | △ |
+| Identity Center<br>（Organizationsあり） | △ | ○ | ○ | ○ | ○ |
 
 
-
-if __name__ == "__main__":
-    
-    for group_data in groups_data:
-        create_group(group_data)
-[cloudshell-user@ip-10-132-39-203 ~]$ 
-[cloudshell-user@ip-10-132-39-203 ~]$ 
-[cloudshell-user@ip-10-132-39-203 ~]$ 
-[cloudshell-user@ip-10-132-39-203 ~]$ python create-group.py
-Group b4a88488-b031-708a-8ad8-75f15d2267eb created successfully
-Group c4e81478-0021-70dc-e9b6-334c99c00332 created successfully
-Group 4448c4b8-d0f1-70ce-aebe-fadd4baa3e93 created successfully
-[cloudshell-user@ip-10-132-39-203 ~]$ 
-```
-
-正常に作成することができました。
-![](https://storage.googleapis.com/zenn-user-upload/18a3a43b45c6-20240106.png)
-
-4. ユーザの作成
-続いてユーザを作成し、グループにマッピングします。
-bashでJSONを取り扱うのが大変だったので、今回はpythonのSDKを使って作成しています。
-
-
-ユーザがいないことを確認。
-![](https://storage.googleapis.com/zenn-user-upload/7820ba50ea3a-20240102.png)
-
-ユーザ情報を定義するJSONファイルをpythonスクリプトが読み込んで、Create User APIおよび、CreateGroupMembership APIをたたくことでユーザを作成します。
-https://docs.aws.amazon.com/singlesignon/latest/IdentityStoreAPIReference/API_CreateUser.html
-https://docs.aws.amazon.com/singlesignon/latest/IdentityStoreAPIReference/API_CreateGroupMembership.html
-
-ユーザの定義ファイルとして「user_info.json」をpythonスクリプトと同じディレクトリに置くことでjsonを読み込み、複数のユーザを一気に作成します。
-::: details Cloud Shell
-```python
-[cloudshell-user@ip-10-132-39-203 ~]$ cat create-user.py 
-import boto3
-import json
-
-# AWS SSOインスタンスのID
-identity_store_id = "d-9067f0aaba"
-
-# ユーザ情報を読み込む
-user_info_file = "user_info.json"
-
-# グループ名とグループIDのマッピング
-group_mapping = {
-    "Group1": "group_id_1",
-    "Group2": "group_id_2",
-    "Group3": "group_id_3"
-}
-
-# AWS SSOにユーザを追加
-def create_user(user_data):
-    client = boto3.client("identitystore")
-
-    # 1つ目のメールアドレスのみを使うように修正
-    primary_email = user_data["emails"][0]
-
-    response = client.create_user(
-        IdentityStoreId=identity_store_id,
-        UserName=user_data["user_name"],
-        Name=user_data["name"],
-        Emails=[
-            {
-                "Primary": primary_email["Primary"],
-                "Type": primary_email["Type"],
-                "Value": primary_email["Value"],
-            }
-        ],
-        DisplayName=user_data.get("displayname", ""),  
-        PreferredLanguage=user_data.get("language", "en-US"),
-    )
-    
-    # 作成されたユーザのIDを取得
-    user_id = response["UserId"]  
-    
-    print(f"User {user_data['user_name']} created successfully")
-
-    # ListGroups APIを使用してグループの情報を取得
-    groups_response = client.list_groups(IdentityStoreId=identity_store_id)
-    group_id_mapping = {group["DisplayName"]: group["GroupId"] for group in groups_response.get("Groups", [])}
-
-    # グループへの紐づけ
-    for group_name in user_data.get("groups", []):
-        group_id = group_id_mapping.get(group_name)
-        if group_id:
-            response = client.create_group_membership(
-                IdentityStoreId=identity_store_id,
-                GroupId=group_id,
-                MemberId={
-                    'UserId': user_id
-                }
-            )
-            print(f"User {user_data['user_name']} added to Group {group_name} successfully")
-        else:
-            print(f"Error: Group ID not found for Group {group_name}")
-
-
-
-if __name__ == "__main__":
-    with open(user_info_file, "r") as file:
-        users_data = json.load(file)
-
-    for user_data in users_data:
-        create_user(user_data)
-[cloudshell-user@ip-10-132-39-203 ~]$ 
-[cloudshell-user@ip-10-132-39-203 ~]$ 
-[cloudshell-user@ip-10-132-39-203 ~]$ 
-[cloudshell-user@ip-10-132-39-203 ~]$ python create-user.py 
-User user1 created successfully
-User user1 added to Group Group1 successfully
-User user1 added to Group Group2 successfully
-User user2 created successfully
-User user2 added to Group Group1 successfully
-User user2 added to Group Group3 successfully
-```
-:::
-ユーザが2人作成されていることを確認します。
-![](https://storage.googleapis.com/zenn-user-upload/747a39db15a3-20240106.png)
-
-グループに所属していることを確認します。
-![](https://storage.googleapis.com/zenn-user-upload/317c8adec86e-20240106.png)
+次はOrganizationsの設計コストやIdentity Centerと別のサービスプロバイダのSSO連携などを検証して、より最適なユーザ管理方式を考えていきたいです。

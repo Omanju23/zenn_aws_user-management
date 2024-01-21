@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# AWS SSOインスタンスのID
-identity_store_id="d-95677dbddb"
+# Identity StoreのIDを指定
+identity_store_id = "[Identity StoreのID]"
 
 # ユーザの情報
 display_name="test_group"
